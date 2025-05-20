@@ -1,7 +1,7 @@
 package ch.zhaw;
 
 import java.util.Scanner;
-import java.util.ArrayList;
+import java.util.List;
 
 import static com.mongodb.client.model.Filters.*;
 import com.mongodb.ConnectionString;
@@ -20,17 +20,14 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.LoggerContext;
 import org.slf4j.LoggerFactory;
 
-import io.github.cdimascio.dotenv.Dotenv;
-
+@SuppressWarnings("unchecked")
 public class App {
     public static void main(String[] args) {
         // Disable logging
         LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
         lc.getLogger("org.mongodb.driver").setLevel(Level.OFF);
 
-        Dotenv dotenv = Dotenv.load();
-        // Replace connection string with connection string retrieved from mongodb!!!
-        String connectionString = dotenv.get("DB_URI");
+        String connectionString = "mongodb+srv://admin:sG4NdHHRsfWRutpw@cluster0.zrkwn.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
         ServerApi serverApi = ServerApi.builder()
                 .version(ServerApiVersion.V1)
@@ -44,31 +41,36 @@ public class App {
         // Create a new client and connect to the server
         try (MongoClient mongoClient = MongoClients.create(settings)) {
             try {
-                // Send a ping to confirm a successful connection
                 MongoDatabase recipeDB = mongoClient.getDatabase("recipefinder");
                 MongoCollection<Document> recipeCol = recipeDB.getCollection("recipes");
                 System.out.println("Found " + recipeCol.countDocuments() + " recipes");
 
-                // Prompt user for an ingredient
+                // prompt user for an ingredient
                 Scanner keyScan = new Scanner(System.in);
-                System.out.println("Enter an ingredient: ");
+                System.out.print("Enter an ingredient: ");
                 String ingredient = keyScan.nextLine();
 
+                // list available recipes
                 FindIterable<Document> allRecipes = recipeCol.find(eq("ingredients.name", ingredient));
                 System.out.println("Available recipes: ");
-                for (Document d: allRecipes) {
+                for (Document d : allRecipes) {
                     System.out.println("- " + d.get("title"));
                 }
 
-                System.out.println("Enter the title of your preferred recipe: ");
-                String recipeTitle = keyScan.nextLine();
+                // prompt user for recipe
+                System.out.print("Enter the title of your preferred recipe: ");
+                String recipeName = keyScan.nextLine();
 
-                Document selectedRecipe = recipeCol.find(eq("title", recipeTitle)).first();
-                System.out.println("Good choice! For " + selectedRecipe.get("title") + " you need:");
-
-                ArrayList<Document> ingr = selectedRecipe.get("ingredients", ArrayList.class);
-                for (Document d: ingr) {
-                    System.out.println("- " + d.get("name"));
+                // print recipe details
+                Document selectedRecipe = recipeCol.find(eq("title", recipeName)).first();
+                if (selectedRecipe != null) {
+                    System.out.println("Good choice! For " + recipeName + " you need:");
+                    List<Document> ingr = selectedRecipe.get("ingredients", List.class);
+                    for (Document i : ingr) {
+                        System.out.println("- " + i.get("quantity") + i.get("unit")  +" of " + i.get("name"));
+                    }
+                } else {
+                    System.out.println("Recipe not found. Try again.");
                 }
 
                 keyScan.close();
